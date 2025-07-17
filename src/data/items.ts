@@ -308,7 +308,7 @@ export function combineItemEffects(items: BulletModifier[]) {
     glow: false,
     particles: false,
     size: 1,
-    shape: 'circle' as const
+    shape: 'square' as const
   };
 
   items.forEach(item => {

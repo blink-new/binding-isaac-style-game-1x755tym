@@ -3,13 +3,15 @@ import React from 'react';
 interface WaveInfoProps {
   currentWave: number;
   enemiesRemaining: number;
-  waveState: 'fighting' | 'shopping' | 'preparing';
+  waveState: 'starting' | 'fighting' | 'shopping' | 'preparing';
   waveTimer: number;
 }
 
 const WaveInfo: React.FC<WaveInfoProps> = ({ currentWave, enemiesRemaining, waveState, waveTimer }) => {
   const getWaveStateText = () => {
     switch (waveState) {
+      case 'starting':
+        return `Get Ready! ${Math.ceil(waveTimer / 1000)}s`;
       case 'fighting':
         return `Enemies: ${enemiesRemaining}`;
       case 'preparing':
@@ -23,6 +25,8 @@ const WaveInfo: React.FC<WaveInfoProps> = ({ currentWave, enemiesRemaining, wave
 
   const getWaveStateColor = () => {
     switch (waveState) {
+      case 'starting':
+        return 'text-blue-400';
       case 'fighting':
         return 'text-red-400';
       case 'preparing':
@@ -43,6 +47,17 @@ const WaveInfo: React.FC<WaveInfoProps> = ({ currentWave, enemiesRemaining, wave
         <div className={`text-sm font-semibold ${getWaveStateColor()}`}>
           {getWaveStateText()}
         </div>
+        
+        {waveState === 'starting' && (
+          <div className="mt-2 w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 transition-all duration-100"
+              style={{ 
+                width: `${Math.max(0, (1 - waveTimer / 5000) * 100)}%` 
+              }}
+            />
+          </div>
+        )}
         
         {waveState === 'fighting' && (
           <div className="mt-2 w-32 h-2 bg-gray-700 rounded-full overflow-hidden">

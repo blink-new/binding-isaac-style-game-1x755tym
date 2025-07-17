@@ -66,19 +66,32 @@ const Game: React.FC = () => {
       gameOver: false,
       paused: false,
       keys: {},
-      mousePosition: { x: 0, y: 0 },
+      mousePosition: { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 },
       mousePressed: false,
       // Wave system
       currentWave: 1,
-      waveState: 'preparing',
+      waveState: 'starting', // Start with starting phase
       enemiesRemaining: 0,
-      waveTimer: 3000, // 3 seconds to prepare
+      waveTimer: 5000, // 5 seconds to get ready
       shopItems: [],
       playerMoney: 50, // Starting money
       // Directional shooting
       lastDirectionalShot: 0
     };
   }
+
+  const restartGame = () => {
+    // Cancel current animation frame to prevent conflicts
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    
+    // Reset game state completely
+    setGameState(initializeGame());
+    
+    // Clear any lingering UI states
+    setShowItemPickup(null);
+  };
 
   function generateEnemiesForWave(wave: number): Enemy[] {
     const enemies: Enemy[] = [];
@@ -229,6 +242,15 @@ const Game: React.FC = () => {
 
   function updateWaveSystem(state: GameState, now: number) {
     switch (state.waveState) {
+      case 'starting':
+        state.waveTimer -= 16; // Assuming 60fps
+        if (state.waveTimer <= 0) {
+          // Start first wave
+          state.waveState = 'preparing';
+          state.waveTimer = 3000; // 3 seconds to prepare for wave
+        }
+        break;
+        
       case 'preparing':
         state.waveTimer -= 16; // Assuming 60fps
         if (state.waveTimer <= 0) {
@@ -503,24 +525,57 @@ const Game: React.FC = () => {
 
   function checkCollisions(state: GameState) {
     // Bullet vs Enemy collisions
+    const bulletsToRemove: number[] = [];
+    
     state.bullets.forEach((bullet, bulletIndex) => {
+      let hitEnemy = false;
+      
       state.currentRoom.enemies.forEach((enemy, enemyIndex) => {
         if (isColliding(bullet.position, { width: bullet.size, height: bullet.size }, 
                        enemy.position, { width: enemy.size, height: enemy.size })) {
           
-          // Apply damage
-          enemy.health -= bullet.damage;
+          hitEnemy = true;
           
-          // Apply effects
-          if (bullet.poison) enemy.poisoned = true;
-          if (bullet.freeze) enemy.frozen = true;
-          if (bullet.knockback > 0) {
-            const dx = enemy.position.x - bullet.position.x;
-            const dy = enemy.position.y - bullet.position.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance > 0) {
-              enemy.knockbackVelocity.x = (dx / distance) * bullet.knockback;
-              enemy.knockbackVelocity.y = (dy / distance) * bullet.knockback;
+          // Handle explosive bullets - area damage
+          if (bullet.explosive) {
+            const explosionRadius = 60;
+            state.currentRoom.enemies.forEach(nearbyEnemy => {
+              const dx = nearbyEnemy.position.x - bullet.position.x;
+              const dy = nearbyEnemy.position.y - bullet.position.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              
+              if (distance <= explosionRadius) {
+                // Damage decreases with distance
+                const damageMultiplier = Math.max(0.3, 1 - (distance / explosionRadius));
+                nearbyEnemy.health -= bullet.damage * damageMultiplier;
+                
+                // Apply effects to all enemies in explosion
+                if (bullet.poison) nearbyEnemy.poisoned = true;
+                if (bullet.freeze) nearbyEnemy.frozen = true;
+                
+                // Knockback from explosion center
+                if (bullet.knockback > 0 && distance > 0) {
+                  const knockbackForce = bullet.knockback * damageMultiplier;
+                  nearbyEnemy.knockbackVelocity.x = (dx / distance) * knockbackForce;
+                  nearbyEnemy.knockbackVelocity.y = (dy / distance) * knockbackForce;
+                }
+              }
+            });
+          } else {
+            // Normal single-target damage
+            enemy.health -= bullet.damage;
+            
+            // Apply effects
+            if (bullet.poison) enemy.poisoned = true;
+            if (bullet.freeze) enemy.frozen = true;
+            if (bullet.knockback > 0) {
+              const dx = enemy.position.x - bullet.position.x;
+              const dy = enemy.position.y - bullet.position.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance > 0) {
+                enemy.knockbackVelocity.x = (dx / distance) * bullet.knockback;
+                enemy.knockbackVelocity.y = (dy / distance) * bullet.knockback;
+              }
             }
           }
           
@@ -530,12 +585,17 @@ const Game: React.FC = () => {
               state.player.health + bullet.lifeSteal);
           }
 
-          // Remove bullet if not piercing
-          if (!bullet.piercing) {
-            state.bullets.splice(bulletIndex, 1);
+          // Mark bullet for removal if not piercing
+          if (!bullet.piercing && !bulletsToRemove.includes(bulletIndex)) {
+            bulletsToRemove.push(bulletIndex);
           }
         }
       });
+    });
+
+    // Remove bullets that hit enemies (in reverse order to maintain indices)
+    bulletsToRemove.sort((a, b) => b - a).forEach(index => {
+      state.bullets.splice(index, 1);
     });
 
     // Player vs Enemy collisions (damage player)
@@ -635,32 +695,95 @@ const Game: React.FC = () => {
       ctx.fillRect(enemy.position.x, enemy.position.y - 8, enemy.size * healthPercent, 4);
     });
 
-    // Draw bullets
+    // Draw bullets with enhanced effects
     gameState.bullets.forEach(bullet => {
-      ctx.fillStyle = bullet.color;
+      const centerX = bullet.position.x + bullet.size / 2;
+      const centerY = bullet.position.y + bullet.size / 2;
       
+      // Draw trail effect
+      if (bullet.trail) {
+        const age = Date.now() - bullet.createdAt;
+        const trailLength = Math.min(age / 50, 10); // Trail gets longer over time
+        
+        for (let i = 0; i < trailLength; i++) {
+          const alpha = (trailLength - i) / trailLength * 0.3;
+          const trailX = centerX - bullet.velocity.x * i * 0.5;
+          const trailY = centerY - bullet.velocity.y * i * 0.5;
+          const trailSize = bullet.size * (0.5 + alpha);
+          
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = bullet.color;
+          
+          if (bullet.shape === 'circle') {
+            ctx.beginPath();
+            ctx.arc(trailX, trailY, trailSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillRect(trailX - trailSize / 2, trailY - trailSize / 2, trailSize, trailSize);
+          }
+          ctx.restore();
+        }
+      }
+      
+      // Draw particles effect
+      if (bullet.particles) {
+        const age = Date.now() - bullet.createdAt;
+        const particleCount = 3;
+        
+        for (let i = 0; i < particleCount; i++) {
+          const angle = (age / 100 + i * Math.PI * 2 / particleCount) % (Math.PI * 2);
+          const radius = bullet.size * 0.8;
+          const particleX = centerX + Math.cos(angle) * radius;
+          const particleY = centerY + Math.sin(angle) * radius;
+          
+          ctx.save();
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = bullet.color;
+          ctx.beginPath();
+          ctx.arc(particleX, particleY, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+      
+      // Set up glow effect
       if (bullet.glow) {
         ctx.shadowColor = bullet.color;
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 12;
       }
+      
+      // Draw main bullet with better visibility
+      ctx.fillStyle = bullet.color;
+      
+      // Add white outline for better visibility
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
       
       if (bullet.shape === 'circle') {
         ctx.beginPath();
-        ctx.arc(bullet.position.x + bullet.size / 2, bullet.position.y + bullet.size / 2, bullet.size / 2, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, bullet.size / 2, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
       } else if (bullet.shape === 'diamond') {
         ctx.save();
-        ctx.translate(bullet.position.x + bullet.size / 2, bullet.position.y + bullet.size / 2);
+        ctx.translate(centerX, centerY);
         ctx.rotate(Math.PI / 4);
         ctx.fillRect(-bullet.size / 2, -bullet.size / 2, bullet.size, bullet.size);
+        ctx.strokeRect(-bullet.size / 2, -bullet.size / 2, bullet.size, bullet.size);
         ctx.restore();
       } else if (bullet.shape === 'star') {
-        drawStar(ctx, bullet.position.x + bullet.size / 2, bullet.position.y + bullet.size / 2, bullet.size / 2);
+        drawStar(ctx, centerX, centerY, bullet.size / 2);
+        ctx.stroke();
       } else {
+        // Default square bullet with better visibility
         ctx.fillRect(bullet.position.x, bullet.position.y, bullet.size, bullet.size);
+        ctx.strokeRect(bullet.position.x, bullet.position.y, bullet.size, bullet.size);
       }
       
+      // Reset shadow and stroke
       ctx.shadowBlur = 0;
+      ctx.lineWidth = 1;
     });
 
     // Draw player
@@ -741,7 +864,7 @@ const Game: React.FC = () => {
               <p className="text-lg mb-2">Final Score: {gameState.score.toLocaleString()}</p>
               <p className="text-lg mb-4">Wave Reached: {gameState.currentWave}</p>
               <button 
-                onClick={() => setGameState(initializeGame())}
+                onClick={restartGame}
                 className="bg-accent hover:bg-accent/80 text-white px-6 py-2 rounded font-bold"
               >
                 Play Again

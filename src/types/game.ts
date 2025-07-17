@@ -148,7 +148,7 @@ export interface GameState {
   mousePressed: boolean;
   // Wave system
   currentWave: number;
-  waveState: 'fighting' | 'shopping' | 'preparing';
+  waveState: 'starting' | 'fighting' | 'shopping' | 'preparing';
   enemiesRemaining: number;
   waveTimer: number;
   shopItems: BulletModifier[];
