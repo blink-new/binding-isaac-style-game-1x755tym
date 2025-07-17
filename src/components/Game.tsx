@@ -268,7 +268,7 @@ const Game: React.FC = () => {
           // Wave completed
           state.waveState = 'shopping';
           state.shopItems = getRandomShopItems(3);
-          state.playerMoney += 10 + Math.floor(state.currentWave * 2.5); // Money reward (50% reduced)
+          state.playerMoney += 5 + Math.floor(state.currentWave * 1.25); // Money reward (50% reduced)
           state.score += 100 * state.currentWave;
           state.purchasedItems = []; // Reset purchased items for new shop
         }
@@ -385,8 +385,8 @@ const Game: React.FC = () => {
           y: player.position.y + player.size / 2
         },
         velocity: {
-          x: bulletDirX * 8, // Slower bullet speed for better visibility
-          y: bulletDirY * 8  // Slower bullet speed for better visibility
+          x: bulletDirX * 5, // Reasonable bullet speed similar to player
+          y: bulletDirY * 5  // Reasonable bullet speed similar to player
         },
         damage: player.stats.damage * combined.stats.damage,
         size: 6 * combined.stats.size * combined.visual.size,
@@ -518,7 +518,7 @@ const Game: React.FC = () => {
     const initialCount = state.currentRoom.enemies.length;
     state.currentRoom.enemies = state.currentRoom.enemies.filter(enemy => {
       if (enemy.health <= 0) {
-        state.playerMoney += 1 + Math.floor(state.currentWave / 6); // Money per kill (50% reduced)
+        state.playerMoney += Math.max(1, Math.floor((1 + state.currentWave / 6) / 2)); // Money per kill (50% reduced)
         state.score += 10;
         return false;
       }
