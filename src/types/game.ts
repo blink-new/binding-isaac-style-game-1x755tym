@@ -153,6 +153,7 @@ export interface GameState {
   waveTimer: number;
   shopItems: BulletModifier[];
   playerMoney: number;
+  purchasedItems: string[]; // Track purchased item IDs per shop
   // Directional shooting
   lastDirectionalShot: number;
 }

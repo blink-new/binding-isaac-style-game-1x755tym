@@ -8,9 +8,10 @@ interface ShopProps {
   onPurchase: (item: BulletModifier) => void;
   onClose: () => void;
   currentWave: number;
+  purchasedItems?: string[]; // Track purchased item IDs
 }
 
-const Shop: React.FC<ShopProps> = ({ items, playerMoney, onPurchase, onClose, currentWave }) => {
+const Shop: React.FC<ShopProps> = ({ items, playerMoney, onPurchase, onClose, currentWave, purchasedItems = [] }) => {
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case 'common': return 'border-gray-400 bg-gray-100';
@@ -46,13 +47,14 @@ const Shop: React.FC<ShopProps> = ({ items, playerMoney, onPurchase, onClose, cu
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {items.map((item) => {
             const canAfford = playerMoney >= item.price;
+            const isPurchased = purchasedItems.includes(item.id);
             
             return (
               <div
                 key={item.id}
                 className={`p-4 rounded-lg border-2 ${getRarityColor(item.rarity)} ${
-                  !canAfford ? 'opacity-50' : ''
-                }`}
+                  !canAfford || isPurchased ? 'opacity-50' : ''
+                } ${isPurchased ? 'bg-gray-300' : ''}`}
               >
                 <div className="text-center mb-3">
                   <div className="text-4xl mb-2">{item.icon}</div>
@@ -95,11 +97,11 @@ const Shop: React.FC<ShopProps> = ({ items, playerMoney, onPurchase, onClose, cu
                   </div>
                   <Button
                     onClick={() => onPurchase(item)}
-                    disabled={!canAfford}
+                    disabled={!canAfford || isPurchased}
                     size="sm"
-                    className={canAfford ? 'bg-accent hover:bg-accent/80' : ''}
+                    className={canAfford && !isPurchased ? 'bg-accent hover:bg-accent/80' : ''}
                   >
-                    {canAfford ? 'Buy' : 'Too Expensive'}
+                    {isPurchased ? 'Purchased' : canAfford ? 'Buy' : 'Too Expensive'}
                   </Button>
                 </div>
               </div>

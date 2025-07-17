@@ -75,6 +75,7 @@ const Game: React.FC = () => {
       waveTimer: 5000, // 5 seconds to get ready
       shopItems: [],
       playerMoney: 50, // Starting money
+      purchasedItems: [], // Track purchased items per shop
       // Directional shooting
       lastDirectionalShot: 0
     };
@@ -267,8 +268,9 @@ const Game: React.FC = () => {
           // Wave completed
           state.waveState = 'shopping';
           state.shopItems = getRandomShopItems(3);
-          state.playerMoney += 20 + state.currentWave * 5; // Money reward
+          state.playerMoney += 10 + Math.floor(state.currentWave * 2.5); // Money reward (50% reduced)
           state.score += 100 * state.currentWave;
+          state.purchasedItems = []; // Reset purchased items for new shop
         }
         break;
         
@@ -282,10 +284,11 @@ const Game: React.FC = () => {
     const { player, keys } = state;
     let vx = 0, vy = 0;
 
-    if (keys['w'] || keys['arrowup']) vy -= 1;
-    if (keys['s'] || keys['arrowdown']) vy += 1;
-    if (keys['a'] || keys['arrowleft']) vx -= 1;
-    if (keys['d'] || keys['arrowright']) vx += 1;
+    // Only WASD keys for movement (no arrow keys)
+    if (keys['w']) vy -= 1;
+    if (keys['s']) vy += 1;
+    if (keys['a']) vx -= 1;
+    if (keys['d']) vx += 1;
 
     // Normalize diagonal movement
     if (vx !== 0 && vy !== 0) {
@@ -382,8 +385,8 @@ const Game: React.FC = () => {
           y: player.position.y + player.size / 2
         },
         velocity: {
-          x: bulletDirX * 8 * player.stats.speed * combined.stats.speed,
-          y: bulletDirY * 8 * player.stats.speed * combined.stats.speed
+          x: bulletDirX * 8, // Slower bullet speed for better visibility
+          y: bulletDirY * 8  // Slower bullet speed for better visibility
         },
         damage: player.stats.damage * combined.stats.damage,
         size: 6 * combined.stats.size * combined.visual.size,
@@ -515,7 +518,7 @@ const Game: React.FC = () => {
     const initialCount = state.currentRoom.enemies.length;
     state.currentRoom.enemies = state.currentRoom.enemies.filter(enemy => {
       if (enemy.health <= 0) {
-        state.playerMoney += 2 + Math.floor(state.currentWave / 3); // Money per kill
+        state.playerMoney += 1 + Math.floor(state.currentWave / 6); // Money per kill (50% reduced)
         state.score += 10;
         return false;
       }
@@ -621,14 +624,16 @@ const Game: React.FC = () => {
 
   const handleShopPurchase = (item: any) => {
     setGameState(prev => {
-      if (prev.playerMoney >= item.price) {
+      // Check if item was already purchased and if player has enough money
+      if (prev.playerMoney >= item.price && !prev.purchasedItems.includes(item.id)) {
         return {
           ...prev,
           player: {
             ...prev.player,
             items: [...prev.player.items, item]
           },
-          playerMoney: prev.playerMoney - item.price
+          playerMoney: prev.playerMoney - item.price,
+          purchasedItems: [...prev.purchasedItems, item.id] // Track purchased item
         };
       }
       return prev;
@@ -846,6 +851,7 @@ const Game: React.FC = () => {
             onPurchase={handleShopPurchase}
             onClose={handleShopClose}
             currentWave={gameState.currentWave}
+            purchasedItems={gameState.purchasedItems}
           />
         )}
         
