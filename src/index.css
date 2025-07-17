@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 47 47 47;
+    --foreground: 255 255 255;
+    --card: 35 35 35;
+    --card-foreground: 255 255 255;
+    --popover: 35 35 35;
+    --popover-foreground: 255 255 255;
+    --primary: 25 69 139;
+    --primary-foreground: 255 255 255;
+    --secondary: 60 60 60;
+    --secondary-foreground: 255 255 255;
+    --muted: 60 60 60;
+    --muted-foreground: 180 180 180;
+    --accent: 220 20 60;
+    --accent-foreground: 255 255 255;
+    --destructive: 220 20 60;
+    --destructive-foreground: 255 255 255;
+    --border: 80 80 80;
+    --input: 80 80 80;
+    --ring: 25 69 139;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-mono;
+
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: Orbitron, monospace;
+    overflow: hidden;
+  }
+}
+
+.pixel-perfect {
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.game-canvas {
+  border: 2px solid hsl(var(--border));
+  background: #1a1a1a;
+}
+
+.health-heart {
+  filter: drop-shadow(0 0 4px rgb(220 20 60 / 50%));
+}
+
+.item-glow {
+  filter: drop-shadow(0 0 8px rgb(255 215 0 / 60%));
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 100%; }
+  50% { opacity: 70%; }
+}
+
+.bullet-trail {
+  filter: drop-shadow(0 0 4px currentcolor);
+}
+
+.enemy-hit {
+  animation: hit-flash 0.2s ease-out;
+}
+
+@keyframes hit-flash {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(2) hue-rotate(0deg); }
+  100% { filter: brightness(1); }
+}
+
+.room-transition {
+  animation: room-fade 0.3s ease-in-out;
+}
+
+@keyframes room-fade {
+  0% { opacity: 0%; transform: scale(0.95); }
+  100% { opacity: 100%; transform: scale(1); }
+}
