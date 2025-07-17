@@ -19,6 +19,8 @@ export interface BulletModifier {
   description: string;
   icon: string;
   color: string;
+  price: number;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
   effects: {
     damage?: number;
     speed?: number;
@@ -144,4 +146,13 @@ export interface GameState {
   keys: { [key: string]: boolean };
   mousePosition: Position;
   mousePressed: boolean;
+  // Wave system
+  currentWave: number;
+  waveState: 'fighting' | 'shopping' | 'preparing';
+  enemiesRemaining: number;
+  waveTimer: number;
+  shopItems: BulletModifier[];
+  playerMoney: number;
+  // Directional shooting
+  lastDirectionalShot: number;
 }

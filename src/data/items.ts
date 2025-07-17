@@ -7,6 +7,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Increases bullet damage',
     icon: '💪',
     color: '#ff4444',
+    price: 15,
+    rarity: 'common',
     effects: {
       damage: 2
     },
@@ -21,6 +23,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Increases bullet speed',
     icon: '⚡',
     color: '#44ff44',
+    price: 12,
+    rarity: 'common',
     effects: {
       speed: 1.5
     },
@@ -35,6 +39,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets pierce through enemies',
     icon: '🏹',
     color: '#4444ff',
+    price: 25,
+    rarity: 'rare',
     effects: {
       piercing: true
     },
@@ -49,6 +55,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets home in on enemies',
     icon: '🎯',
     color: '#ff44ff',
+    price: 30,
+    rarity: 'rare',
     effects: {
       homing: true
     },
@@ -63,6 +71,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Fire multiple bullets at once',
     icon: '🔫',
     color: '#ffff44',
+    price: 35,
+    rarity: 'rare',
     effects: {
       multiShot: 3,
       spread: 0.3
@@ -77,6 +87,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets explode on impact',
     icon: '💥',
     color: '#ff8844',
+    price: 45,
+    rarity: 'epic',
     effects: {
       explosive: true,
       damage: 1.5
@@ -93,6 +105,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets poison enemies over time',
     icon: '☠️',
     color: '#44ff88',
+    price: 20,
+    rarity: 'common',
     effects: {
       poison: true
     },
@@ -107,6 +121,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets freeze enemies temporarily',
     icon: '❄️',
     color: '#88ddff',
+    price: 22,
+    rarity: 'common',
     effects: {
       freeze: true
     },
@@ -121,6 +137,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets bounce off walls',
     icon: '⚾',
     color: '#ff88ff',
+    price: 28,
+    rarity: 'rare',
     effects: {
       bouncing: true,
       range: 1.5
@@ -136,6 +154,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets split into smaller bullets on impact',
     icon: '🌟',
     color: '#ffaa44',
+    price: 40,
+    rarity: 'epic',
     effects: {
       splitting: true,
       damage: 0.8
@@ -151,6 +171,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Greatly increases fire rate',
     icon: '🔥',
     color: '#ff6644',
+    price: 32,
+    rarity: 'rare',
     effects: {
       fireRate: 2.5
     },
@@ -165,6 +187,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Massive bullets with increased damage',
     icon: '🔴',
     color: '#aa44ff',
+    price: 50,
+    rarity: 'epic',
     effects: {
       size: 2,
       damage: 3,
@@ -182,6 +206,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets heal you when they hit enemies',
     icon: '❤️',
     color: '#ff4488',
+    price: 60,
+    rarity: 'legendary',
     effects: {
       lifeSteal: 0.1
     },
@@ -197,6 +223,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Bullets knock enemies back',
     icon: '👊',
     color: '#8844ff',
+    price: 18,
+    rarity: 'common',
     effects: {
       knockback: 5,
       damage: 1.2
@@ -212,6 +240,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Sharp diamond-shaped bullets',
     icon: '💎',
     color: '#44ffff',
+    price: 38,
+    rarity: 'rare',
     effects: {
       damage: 1.5,
       piercing: true
@@ -228,6 +258,8 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     description: 'Star-shaped bullets with special properties',
     icon: '⭐',
     color: '#ffff88',
+    price: 42,
+    rarity: 'epic',
     effects: {
       damage: 1.3,
       multiShot: 2,
@@ -243,6 +275,11 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
 
 export function getRandomItem(): BulletModifier {
   return BULLET_MODIFIERS[Math.floor(Math.random() * BULLET_MODIFIERS.length)];
+}
+
+export function getRandomShopItems(count: number = 3): BulletModifier[] {
+  const shuffled = [...BULLET_MODIFIERS].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
 }
 
 export function combineItemEffects(items: BulletModifier[]) {

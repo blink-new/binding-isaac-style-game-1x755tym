@@ -5,9 +5,10 @@ interface GameHUDProps {
   player: Player;
   score: number;
   level: number;
+  money: number;
 }
 
-const GameHUD: React.FC<GameHUDProps> = ({ player, score, level }) => {
+const GameHUD: React.FC<GameHUDProps> = ({ player, score, level, money }) => {
   const renderHearts = () => {
     const hearts = [];
     const fullHearts = Math.floor(player.health);
@@ -64,10 +65,14 @@ const GameHUD: React.FC<GameHUDProps> = ({ player, score, level }) => {
           </div>
         </div>
 
-        {/* Score and Level */}
+        {/* Score, Level, and Money */}
         <div className="bg-black/80 p-3 rounded-lg border border-gray-700 text-right">
           <div className="text-white text-lg font-bold">Score: {score.toLocaleString()}</div>
           <div className="text-gray-300 text-sm">Level: {level}</div>
+          <div className="flex items-center justify-end gap-1 mt-1">
+            <span className="text-lg">💰</span>
+            <span className="text-accent font-bold">{money}</span>
+          </div>
         </div>
       </div>
 

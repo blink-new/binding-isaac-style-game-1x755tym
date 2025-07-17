@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameState, Player, Room, Bullet, Enemy, Position } from '../types/game';
-import { BULLET_MODIFIERS, getRandomItem, combineItemEffects } from '../data/items';
+import { BULLET_MODIFIERS, getRandomShopItems, combineItemEffects } from '../data/items';
 import GameHUD from './GameHUD';
 import ItemPickup from './ItemPickup';
+import Shop from './Shop';
+import WaveInfo from './WaveInfo';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -46,8 +48,8 @@ const Game: React.FC = () => {
       id: 'room_1',
       position: { x: 0, y: 0 },
       type: 'normal',
-      enemies: generateEnemies(),
-      items: [getRandomItem()],
+      enemies: [],
+      items: [],
       cleared: false,
       visited: true,
       doors: { north: true, south: true, east: true, west: true }
@@ -65,28 +67,65 @@ const Game: React.FC = () => {
       paused: false,
       keys: {},
       mousePosition: { x: 0, y: 0 },
-      mousePressed: false
+      mousePressed: false,
+      // Wave system
+      currentWave: 1,
+      waveState: 'preparing',
+      enemiesRemaining: 0,
+      waveTimer: 3000, // 3 seconds to prepare
+      shopItems: [],
+      playerMoney: 50, // Starting money
+      // Directional shooting
+      lastDirectionalShot: 0
     };
   }
 
-  function generateEnemies(): Enemy[] {
+  function generateEnemiesForWave(wave: number): Enemy[] {
     const enemies: Enemy[] = [];
-    const enemyCount = Math.floor(Math.random() * 5) + 3;
+    const enemyCount = Math.min(wave * 3 + 5, 20); // Cap at 20 enemies
     
     for (let i = 0; i < enemyCount; i++) {
+      const enemyTypes = ['basic', 'fast', 'tank'];
+      const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)] as 'basic' | 'fast' | 'tank';
+      
+      let health = 3;
+      let size = 20;
+      let color = '#ff4444';
+      let speed = 1;
+      
+      // Adjust stats based on type and wave
+      switch (type) {
+        case 'fast':
+          health = Math.max(1, 2 + Math.floor(wave / 3));
+          speed = 1.5 + wave * 0.1;
+          color = '#44ff44';
+          size = 16;
+          break;
+        case 'tank':
+          health = 5 + Math.floor(wave / 2);
+          speed = 0.5 + wave * 0.05;
+          color = '#4444ff';
+          size = 28;
+          break;
+        default: // basic
+          health = 3 + Math.floor(wave / 4);
+          speed = 1 + wave * 0.05;
+          break;
+      }
+
       const enemy: Enemy = {
-        id: `enemy_${i}`,
+        id: `enemy_${wave}_${i}`,
         position: {
           x: Math.random() * (ROOM_WIDTH - 60) + 50,
           y: Math.random() * (ROOM_HEIGHT - 60) + 50
         },
         velocity: { x: 0, y: 0 },
-        health: 3,
-        maxHealth: 3,
-        damage: 1,
-        size: 20,
-        color: '#ff4444',
-        type: 'basic',
+        health,
+        maxHealth: health,
+        damage: 1 + Math.floor(wave / 5),
+        size,
+        color,
+        type,
         ai: 'chase',
         lastShot: 0,
         shootCooldown: 2000,
@@ -160,33 +199,62 @@ const Game: React.FC = () => {
       const newState = { ...prev };
       const now = Date.now();
 
-      // Update player movement
-      updatePlayerMovement(newState);
+      // Update wave system
+      updateWaveSystem(newState, now);
 
-      // Handle shooting
-      if (newState.mousePressed) {
-        handleShooting(newState, now);
-      }
+      // Only update game mechanics during fighting phase
+      if (newState.waveState === 'fighting') {
+        // Update player movement
+        updatePlayerMovement(newState);
 
-      // Update bullets
-      updateBullets(newState);
+        // Handle shooting (mouse and directional)
+        if (newState.mousePressed) {
+          handleMouseShooting(newState, now);
+        }
+        handleDirectionalShooting(newState, now);
 
-      // Update enemies
-      updateEnemies(newState, now);
+        // Update bullets
+        updateBullets(newState);
 
-      // Check collisions
-      checkCollisions(newState);
+        // Update enemies
+        updateEnemies(newState, now);
 
-      // Check if room is cleared
-      if (newState.currentRoom.enemies.length === 0 && !newState.currentRoom.cleared) {
-        newState.currentRoom.cleared = true;
-        newState.score += 100;
+        // Check collisions
+        checkCollisions(newState);
       }
 
       return newState;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function updateWaveSystem(state: GameState, now: number) {
+    switch (state.waveState) {
+      case 'preparing':
+        state.waveTimer -= 16; // Assuming 60fps
+        if (state.waveTimer <= 0) {
+          // Start the wave
+          state.waveState = 'fighting';
+          state.currentRoom.enemies = generateEnemiesForWave(state.currentWave);
+          state.enemiesRemaining = state.currentRoom.enemies.length;
+        }
+        break;
+        
+      case 'fighting':
+        state.enemiesRemaining = state.currentRoom.enemies.length;
+        if (state.enemiesRemaining === 0) {
+          // Wave completed
+          state.waveState = 'shopping';
+          state.shopItems = getRandomShopItems(3);
+          state.playerMoney += 20 + state.currentWave * 5; // Money reward
+          state.score += 100 * state.currentWave;
+        }
+        break;
+        
+      case 'shopping':
+        // Shop is handled by UI component
+        break;
+    }
+  }
 
   function updatePlayerMovement(state: GameState) {
     const { player, keys } = state;
@@ -218,7 +286,7 @@ const Game: React.FC = () => {
     }
   }
 
-  function handleShooting(state: GameState, now: number) {
+  function handleMouseShooting(state: GameState, now: number) {
     const { player, mousePosition } = state;
     const timeSinceLastShot = now - player.lastShot;
     const fireDelay = 200 / player.stats.fireRate;
@@ -234,6 +302,40 @@ const Game: React.FC = () => {
     const dirX = dx / distance;
     const dirY = dy / distance;
 
+    createBullets(state, dirX, dirY, now);
+    player.lastShot = now;
+  }
+
+  function handleDirectionalShooting(state: GameState, now: number) {
+    const { player, keys } = state;
+    const timeSinceLastShot = now - state.lastDirectionalShot;
+    const fireDelay = 150 / player.stats.fireRate; // Slightly faster for directional
+
+    if (timeSinceLastShot < fireDelay) return;
+
+    let dirX = 0, dirY = 0;
+
+    // Check for arrow keys or IJKL for shooting
+    if (keys['arrowup'] || keys['i']) dirY = -1;
+    if (keys['arrowdown'] || keys['k']) dirY = 1;
+    if (keys['arrowleft'] || keys['j']) dirX = -1;
+    if (keys['arrowright'] || keys['l']) dirX = 1;
+
+    if (dirX === 0 && dirY === 0) return;
+
+    // Normalize diagonal shooting
+    if (dirX !== 0 && dirY !== 0) {
+      dirX *= 0.707;
+      dirY *= 0.707;
+    }
+
+    createBullets(state, dirX, dirY, now);
+    state.lastDirectionalShot = now;
+  }
+
+  function createBullets(state: GameState, dirX: number, dirY: number, now: number) {
+    const { player } = state;
+    
     // Create bullets based on multiShot
     const bulletCount = Math.max(1, player.stats.multiShot);
     const spreadAngle = player.stats.spread;
@@ -283,8 +385,6 @@ const Game: React.FC = () => {
 
       state.bullets.push(bullet);
     }
-
-    player.lastShot = now;
   }
 
   function updateBullets(state: GameState) {
@@ -367,7 +467,10 @@ const Game: React.FC = () => {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance > 0) {
-          const speed = 1;
+          let speed = 1;
+          if (enemy.type === 'fast') speed = 1.5;
+          if (enemy.type === 'tank') speed = 0.5;
+          
           enemy.velocity.x = (dx / distance) * speed;
           enemy.velocity.y = (dy / distance) * speed;
           
@@ -386,8 +489,16 @@ const Game: React.FC = () => {
       enemy.position.y = Math.max(WALL_THICKNESS, Math.min(CANVAS_HEIGHT - WALL_THICKNESS - enemy.size, enemy.position.y));
     });
 
-    // Remove dead enemies
-    state.currentRoom.enemies = state.currentRoom.enemies.filter(enemy => enemy.health > 0);
+    // Remove dead enemies and award money
+    const initialCount = state.currentRoom.enemies.length;
+    state.currentRoom.enemies = state.currentRoom.enemies.filter(enemy => {
+      if (enemy.health <= 0) {
+        state.playerMoney += 2 + Math.floor(state.currentWave / 3); // Money per kill
+        state.score += 10;
+        return false;
+      }
+      return true;
+    });
   }
 
   function checkCollisions(state: GameState) {
@@ -419,48 +530,23 @@ const Game: React.FC = () => {
               state.player.health + bullet.lifeSteal);
           }
 
-          // Handle splitting bullets
-          if (bullet.splitting) {
-            for (let i = 0; i < 3; i++) {
-              const angle = (Math.PI * 2 / 3) * i;
-              const splitBullet: Bullet = {
-                ...bullet,
-                id: `split_${bullet.id}_${i}`,
-                position: { ...bullet.position },
-                velocity: {
-                  x: Math.cos(angle) * 4,
-                  y: Math.sin(angle) * 4
-                },
-                damage: bullet.damage * 0.5,
-                size: bullet.size * 0.7,
-                distanceTraveled: 0,
-                splitting: false
-              };
-              state.bullets.push(splitBullet);
-            }
-          }
-
           // Remove bullet if not piercing
           if (!bullet.piercing) {
             state.bullets.splice(bulletIndex, 1);
           }
-
-          state.score += 10;
         }
       });
     });
 
-    // Player vs Item collisions
-    state.currentRoom.items.forEach((item, itemIndex) => {
-      const itemPos = { x: 100 + itemIndex * 60, y: 100 };
+    // Player vs Enemy collisions (damage player)
+    state.currentRoom.enemies.forEach(enemy => {
       if (isColliding(state.player.position, { width: state.player.size, height: state.player.size },
-                     itemPos, { width: 40, height: 40 })) {
-        
-        // Show pickup UI
-        setShowItemPickup({ item, position: itemPos });
-        
-        // Remove item from room
-        state.currentRoom.items.splice(itemIndex, 1);
+                     enemy.position, { width: enemy.size, height: enemy.size })) {
+        // Simple damage system - could be improved with invincibility frames
+        state.player.health -= 0.01; // Small continuous damage
+        if (state.player.health <= 0) {
+          state.gameOver = true;
+        }
       }
     });
   }
@@ -473,20 +559,30 @@ const Game: React.FC = () => {
            pos1.y + size1.height > pos2.y;
   }
 
-  const handleItemPickup = (accept: boolean) => {
-    if (!showItemPickup) return;
-    
-    if (accept) {
-      setGameState(prev => ({
-        ...prev,
-        player: {
-          ...prev.player,
-          items: [...prev.player.items, showItemPickup.item]
-        }
-      }));
-    }
-    
-    setShowItemPickup(null);
+  const handleShopPurchase = (item: any) => {
+    setGameState(prev => {
+      if (prev.playerMoney >= item.price) {
+        return {
+          ...prev,
+          player: {
+            ...prev.player,
+            items: [...prev.player.items, item]
+          },
+          playerMoney: prev.playerMoney - item.price
+        };
+      }
+      return prev;
+    });
+  };
+
+  const handleShopClose = () => {
+    setGameState(prev => ({
+      ...prev,
+      waveState: 'preparing',
+      waveTimer: 3000,
+      currentWave: prev.currentWave + 1,
+      shopItems: []
+    }));
   };
 
   useEffect(() => {
@@ -503,7 +599,6 @@ const Game: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateGame]);
 
   const draw = () => {
@@ -523,27 +618,6 @@ const Game: React.FC = () => {
     ctx.fillRect(0, CANVAS_HEIGHT - WALL_THICKNESS, CANVAS_WIDTH, WALL_THICKNESS); // Bottom
     ctx.fillRect(0, 0, WALL_THICKNESS, CANVAS_HEIGHT); // Left
     ctx.fillRect(CANVAS_WIDTH - WALL_THICKNESS, 0, WALL_THICKNESS, CANVAS_HEIGHT); // Right
-
-    // Draw items
-    gameState.currentRoom.items.forEach((item, index) => {
-      const x = 100 + index * 60;
-      const y = 100;
-      
-      ctx.fillStyle = item.color;
-      ctx.fillRect(x, y, 40, 40);
-      
-      // Item glow effect
-      ctx.shadowColor = item.color;
-      ctx.shadowBlur = 10;
-      ctx.fillRect(x, y, 40, 40);
-      ctx.shadowBlur = 0;
-      
-      // Item icon
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '20px Orbitron';
-      ctx.textAlign = 'center';
-      ctx.fillText(item.icon, x + 20, y + 25);
-    });
 
     // Draw enemies
     gameState.currentRoom.enemies.forEach(enemy => {
@@ -632,19 +706,54 @@ const Game: React.FC = () => {
           player={gameState.player}
           score={gameState.score}
           level={gameState.level}
+          money={gameState.playerMoney}
         />
+        
+        <WaveInfo
+          currentWave={gameState.currentWave}
+          enemiesRemaining={gameState.enemiesRemaining}
+          waveState={gameState.waveState}
+          waveTimer={gameState.waveTimer}
+        />
+        
+        {gameState.waveState === 'shopping' && (
+          <Shop
+            items={gameState.shopItems}
+            playerMoney={gameState.playerMoney}
+            onPurchase={handleShopPurchase}
+            onClose={handleShopClose}
+            currentWave={gameState.currentWave}
+          />
+        )}
         
         {showItemPickup && (
           <ItemPickup
             item={showItemPickup.item}
-            onAccept={() => handleItemPickup(true)}
-            onDecline={() => handleItemPickup(false)}
+            onAccept={() => setShowItemPickup(null)}
+            onDecline={() => setShowItemPickup(null)}
           />
+        )}
+        
+        {gameState.gameOver && (
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+            <div className="bg-background border-2 border-primary rounded-lg p-8 text-center">
+              <h2 className="text-3xl font-bold text-primary mb-4">GAME OVER</h2>
+              <p className="text-lg mb-2">Final Score: {gameState.score.toLocaleString()}</p>
+              <p className="text-lg mb-4">Wave Reached: {gameState.currentWave}</p>
+              <button 
+                onClick={() => setGameState(initializeGame())}
+                className="bg-accent hover:bg-accent/80 text-white px-6 py-2 rounded font-bold"
+              >
+                Play Again
+              </button>
+            </div>
+          </div>
         )}
       </div>
       
       <div className="mt-4 text-center text-sm text-muted-foreground">
-        <p>WASD to move • Mouse to aim and shoot • Collect items to upgrade your bullets!</p>
+        <p>WASD to move • Mouse to aim and shoot • Arrow keys for directional shooting</p>
+        <p>Survive waves of enemies • Buy upgrades between waves!</p>
       </div>
     </div>
   );
