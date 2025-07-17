@@ -20,7 +20,7 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
   {
     id: 'speed_up',
     name: 'Speed Up',
-    description: 'Increases bullet speed',
+    description: 'Increases bullet speed by 50%',
     icon: '⚡',
     color: '#44ff44',
     price: 12,
@@ -31,6 +31,42 @@ export const BULLET_MODIFIERS: BulletModifier[] = [
     visualEffects: {
       trail: true,
       color: '#44ff44'
+    }
+  },
+  {
+    id: 'turbo_shot',
+    name: 'Turbo Shot',
+    description: 'Bullets move twice as fast',
+    icon: '🚀',
+    color: '#00ffff',
+    price: 25,
+    rarity: 'rare',
+    effects: {
+      speed: 2.0
+    },
+    visualEffects: {
+      trail: true,
+      glow: true,
+      color: '#00ffff'
+    }
+  },
+  {
+    id: 'lightning_bolt',
+    name: 'Lightning Bolt',
+    description: 'Ultra-fast bullets with electric trail',
+    icon: '⚡',
+    color: '#ffff00',
+    price: 40,
+    rarity: 'epic',
+    effects: {
+      speed: 3.0,
+      damage: 1.2
+    },
+    visualEffects: {
+      trail: true,
+      glow: true,
+      particles: true,
+      color: '#ffff00'
     }
   },
   {

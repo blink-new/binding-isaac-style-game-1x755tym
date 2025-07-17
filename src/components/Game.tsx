@@ -378,19 +378,25 @@ const Game: React.FC = () => {
 
       const combined = combineItemEffects(player.items);
       
+      // Base bullet size is 1/3 of player size (player is 16px, so base bullet is ~5px)
+      const baseBulletSize = Math.round(player.size / 3);
+      
+      // Base bullet speed starts same as player speed (3) but can be modified by items
+      const baseBulletSpeed = player.stats.speed * combined.stats.speed;
+      
       const bullet: Bullet = {
         id: `bullet_${now}_${i}`,
         position: {
-          x: player.position.x + player.size / 2,
-          y: player.position.y + player.size / 2
+          x: player.position.x + player.size / 2 - baseBulletSize / 2,
+          y: player.position.y + player.size / 2 - baseBulletSize / 2
         },
         velocity: {
-          x: bulletDirX * 5, // Reasonable bullet speed similar to player
-          y: bulletDirY * 5  // Reasonable bullet speed similar to player
+          x: bulletDirX * baseBulletSpeed,
+          y: bulletDirY * baseBulletSpeed
         },
         damage: player.stats.damage * combined.stats.damage,
-        size: 6 * combined.stats.size * combined.visual.size,
-        color: combined.visual.color,
+        size: baseBulletSize * combined.stats.size * combined.visual.size,
+        color: combined.visual.color || '#ffffff', // Default to white for visibility
         piercing: combined.stats.piercing,
         homing: combined.stats.homing,
         bouncing: combined.stats.bouncing,
@@ -700,7 +706,7 @@ const Game: React.FC = () => {
       ctx.fillRect(enemy.position.x, enemy.position.y - 8, enemy.size * healthPercent, 4);
     });
 
-    // Draw bullets with enhanced effects
+    // Draw bullets with completely redesigned visibility system
     gameState.bullets.forEach(bullet => {
       const centerX = bullet.position.x + bullet.size / 2;
       const centerY = bullet.position.y + bullet.size / 2;
@@ -708,25 +714,22 @@ const Game: React.FC = () => {
       // Draw trail effect
       if (bullet.trail) {
         const age = Date.now() - bullet.createdAt;
-        const trailLength = Math.min(age / 50, 10); // Trail gets longer over time
+        const trailLength = Math.min(age / 30, 8); // Shorter, more visible trail
         
         for (let i = 0; i < trailLength; i++) {
-          const alpha = (trailLength - i) / trailLength * 0.3;
-          const trailX = centerX - bullet.velocity.x * i * 0.5;
-          const trailY = centerY - bullet.velocity.y * i * 0.5;
-          const trailSize = bullet.size * (0.5 + alpha);
+          const alpha = (trailLength - i) / trailLength * 0.5;
+          const trailX = centerX - bullet.velocity.x * i * 0.3;
+          const trailY = centerY - bullet.velocity.y * i * 0.3;
+          const trailSize = bullet.size * (0.7 + alpha * 0.3);
           
           ctx.save();
           ctx.globalAlpha = alpha;
           ctx.fillStyle = bullet.color;
           
-          if (bullet.shape === 'circle') {
-            ctx.beginPath();
-            ctx.arc(trailX, trailY, trailSize / 2, 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            ctx.fillRect(trailX - trailSize / 2, trailY - trailSize / 2, trailSize, trailSize);
-          }
+          // Always draw trail as circles for better visibility
+          ctx.beginPath();
+          ctx.arc(trailX, trailY, trailSize / 2, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         }
       }
@@ -734,59 +737,100 @@ const Game: React.FC = () => {
       // Draw particles effect
       if (bullet.particles) {
         const age = Date.now() - bullet.createdAt;
-        const particleCount = 3;
+        const particleCount = 4;
         
         for (let i = 0; i < particleCount; i++) {
-          const angle = (age / 100 + i * Math.PI * 2 / particleCount) % (Math.PI * 2);
-          const radius = bullet.size * 0.8;
+          const angle = (age / 80 + i * Math.PI * 2 / particleCount) % (Math.PI * 2);
+          const radius = bullet.size * 0.6;
           const particleX = centerX + Math.cos(angle) * radius;
           const particleY = centerY + Math.sin(angle) * radius;
           
           ctx.save();
-          ctx.globalAlpha = 0.6;
+          ctx.globalAlpha = 0.8;
           ctx.fillStyle = bullet.color;
           ctx.beginPath();
-          ctx.arc(particleX, particleY, 2, 0, Math.PI * 2);
+          ctx.arc(particleX, particleY, 1.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         }
       }
       
-      // Set up glow effect
+      // Set up glow effect for better visibility
       if (bullet.glow) {
         ctx.shadowColor = bullet.color;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 8;
       }
       
-      // Draw main bullet with better visibility
-      ctx.fillStyle = bullet.color;
-      
-      // Add white outline for better visibility
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
+      // Draw main bullet with maximum visibility
+      // First draw a dark outline for contrast
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
       
       if (bullet.shape === 'circle') {
         ctx.beginPath();
         ctx.arc(centerX, centerY, bullet.size / 2, 0, Math.PI * 2);
-        ctx.fill();
         ctx.stroke();
       } else if (bullet.shape === 'diamond') {
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(Math.PI / 4);
-        ctx.fillRect(-bullet.size / 2, -bullet.size / 2, bullet.size, bullet.size);
         ctx.strokeRect(-bullet.size / 2, -bullet.size / 2, bullet.size, bullet.size);
         ctx.restore();
       } else if (bullet.shape === 'star') {
         drawStar(ctx, centerX, centerY, bullet.size / 2);
         ctx.stroke();
       } else {
-        // Default square bullet with better visibility
-        ctx.fillRect(bullet.position.x, bullet.position.y, bullet.size, bullet.size);
+        // Default square bullet
         ctx.strokeRect(bullet.position.x, bullet.position.y, bullet.size, bullet.size);
       }
       
-      // Reset shadow and stroke
+      // Now draw the main bullet fill
+      ctx.fillStyle = bullet.color;
+      
+      if (bullet.shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, bullet.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (bullet.shape === 'diamond') {
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillRect(-bullet.size / 2, -bullet.size / 2, bullet.size, bullet.size);
+        ctx.restore();
+      } else if (bullet.shape === 'star') {
+        drawStar(ctx, centerX, centerY, bullet.size / 2);
+      } else {
+        // Default square bullet
+        ctx.fillRect(bullet.position.x, bullet.position.y, bullet.size, bullet.size);
+      }
+      
+      // Add bright white inner highlight for maximum visibility
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.6;
+      
+      if (bullet.shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, bullet.size / 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (bullet.shape === 'diamond') {
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillRect(-bullet.size / 4, -bullet.size / 4, bullet.size / 2, bullet.size / 2);
+        ctx.restore();
+      } else if (bullet.shape === 'star') {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, bullet.size / 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Default square bullet inner highlight
+        const innerSize = bullet.size / 2;
+        const innerOffset = bullet.size / 4;
+        ctx.fillRect(bullet.position.x + innerOffset, bullet.position.y + innerOffset, innerSize, innerSize);
+      }
+      
+      // Reset all drawing states
+      ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
       ctx.lineWidth = 1;
     });
